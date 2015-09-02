@@ -91,6 +91,7 @@ public class ShapeKeyImport : MonoBehaviour {
 						anim.frameRate = thisAnimation["Framerate"].n;
 
 						Hashtable shapeKeyFrames = new Hashtable();
+						Hashtable startShapes = new Hashtable();
 
 						ShapeKey[] sks = new ShapeKey[keys.list.Count];
 						for (int j = 0; j < keys.list.Count; j++) {
@@ -100,6 +101,8 @@ public class ShapeKeyImport : MonoBehaviour {
 							sequence.strength = new float[frames.list.Count];
 							shapeKeyFrames.Add (shapekey, sequence);
 							sks[j] = shapekey;
+
+							startShapes.Add (shapekey, startShape[j].n);
 						}
 
 						for (int j = 0; j < frames.list.Count; j++) {
@@ -111,6 +114,7 @@ public class ShapeKeyImport : MonoBehaviour {
 						}
 
 						anim.frames = shapeKeyFrames;
+						anim.startShapes = startShapes;
 						shapekeyanimarray[i] = anim;
 					}
 					ska.shapeKeyAnimations = shapekeyanimarray;

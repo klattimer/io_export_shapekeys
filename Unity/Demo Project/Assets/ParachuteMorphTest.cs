@@ -2,10 +2,12 @@
 using System.Collections;
 
 public class ParachuteMorphTest : MonoBehaviour {
-	float popdelay = 2.2f;
+	float popdelay = 10f;
 	// Use this for initialization
 	void Start () {
-	
+		
+		ShapeKeyAnimations shapeKeyAnims = gameObject.GetComponent<ShapeKeyAnimations>();
+		shapeKeyAnims.shapeKeyAnimations [0].Reset ();
 	}
 	
 	// Update is called once per frame

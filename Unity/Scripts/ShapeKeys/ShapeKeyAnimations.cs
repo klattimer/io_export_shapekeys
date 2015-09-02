@@ -94,6 +94,7 @@ public class ShapeKeyAnimation : System.Object {
     private Hashtable basisMeshes;
 
     public Hashtable frames;
+	public Hashtable startShapes;
 	
     private float shapeKeyStrengthAtTime(ShapeKey shapeKey, float time) {
 		int frameForTime = ((int)Mathf.Floor((time / duration) * (float)(numberOfFrames - 1)));
@@ -180,16 +181,32 @@ public class ShapeKeyAnimation : System.Object {
     // This may, if any of the shape keys are applied result in a deformed
     // mesh, a backup should always be retained.
     public void Reset() {
-
-    }
-
-	private Vector3[] cloneBaseMesh(Vector3[] vertices) {
-		Vector3[] output = new Vector3[vertices.Length];
-		for (int i = 0; i < vertices.Length; i++) {
-			output[i] = new Vector3(vertices[i].x, vertices[i].y, vertices[i].z);
+		foreach (DictionaryEntry de in meshObjects) {
+			GameObject meshObject = (GameObject)de.Key;
+			List<ShapeKey> s = (List<ShapeKey>)de.Value;
+			// Get the basis mesh
+			Vector3[] mesh = (Vector3[])((VertexContainer) basisMeshes[meshObject]).vertices.Clone();
+			for (int i = 0; i < s.Count; i++) {
+				ShapeKey shapeKey = s[i];
+				if (!startShapes.ContainsKey(shapeKey))
+					continue;
+				shapeKey.strength = (float)startShapes[shapeKey];
+				mesh = shapeKey.applyShapeToVertices(mesh);
+			}
+			
+			Mesh m;
+			
+			if (meshObject.GetComponent("SkinnedMeshRenderer") == null) {
+				MeshFilter f = (MeshFilter) meshObject.GetComponent("MeshFilter");
+				m = f.mesh;
+			} else {
+				MeshFilter f = (MeshFilter) meshObject.GetComponent("SkinnedMeshRenderer");
+				m = f.sharedMesh;
+			}
+			
+			m.vertices = mesh;
 		}
-		return output;
-	}
+    }
 
     public void Start() {
 		meshObjects = new Hashtable ();
