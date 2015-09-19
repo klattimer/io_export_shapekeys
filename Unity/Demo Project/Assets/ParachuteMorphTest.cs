@@ -2,7 +2,7 @@
 using System.Collections;
 
 public class ParachuteMorphTest : MonoBehaviour {
-	float popdelay = 10f;
+	float popdelay = 3.0f;
 	// Use this for initialization
 	void Start () {
 		

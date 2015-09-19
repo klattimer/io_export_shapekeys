@@ -16,7 +16,7 @@ public enum AnimationState {
 
 public enum AnimationStyle {
 	end,
-	freeze,
+	reset,
 	loop,
 	pingPong
 }
@@ -56,10 +56,14 @@ public class ShapeKeyAnimation : System.Object {
     private float       _currentTime;
     public float        currentTime {
         get {
-            return _currentTime;
+			// We calculate the current time based on distance from the end,
+			// rather than distance from the start, this helps us deal with
+			// pausing the animation.
+            return duration - (_endTime - _currentTime);
         }
         set {
-            // Move the animation to the specified frame as a time since level load
+            // set the time, next update will set the verts
+			_currentTime = value;
         }
     }
 
@@ -78,29 +82,32 @@ public class ShapeKeyAnimation : System.Object {
 
     public int          currentFrame {
         get {
-            return (int)Mathf.Floor(duration - (_endTime - _currentTime) / duration);
+            return (int)Mathf.Floor(currentTime / duration);
         }
         set {
             // Move the animation to the specified frame as a time index.
+			currentTime = value * frameDelay;
         }
     }
 
 
     private AnimationState animationState = AnimationState.stopped;
     public AnimationStyle animationStyle = AnimationStyle.end;
+	public ShapeKeyAnimationDelegate delegateInterface;
 
+	private bool needsRedraw = false;
     private bool isReversing;
     private Hashtable meshObjects;
     private Hashtable basisMeshes;
 
     public Hashtable frames;
 	public Hashtable startShapes;
-	
+
     private float shapeKeyStrengthAtTime(ShapeKey shapeKey, float time) {
 		int frameForTime = ((int)Mathf.Floor((time / duration) * (float)(numberOfFrames - 1)));
 
 		ShapeKeyFrameSequence f = (ShapeKeyFrameSequence)frames[shapeKey];
-		
+
 		if (f == null)
 			return 0;
 
@@ -151,12 +158,12 @@ public class ShapeKeyAnimation : System.Object {
 			Vector3[] mesh = (Vector3[])((VertexContainer) basisMeshes[meshObject]).vertices.Clone();
             for (int i = 0; i < s.Count; i++) {
                 ShapeKey shapeKey = s[i];
-                shapeKey.strength = shapeKeyStrengthAtTime(shapeKey, duration - (_endTime - _currentTime));
+                shapeKey.strength = shapeKeyStrengthAtTime(shapeKey, currentTime);
 				mesh = shapeKey.applyShapeToVertices(mesh);
             }
 
 			Mesh m;
-			
+
 			if (meshObject.GetComponent("SkinnedMeshRenderer") == null) {
 				MeshFilter f = (MeshFilter) meshObject.GetComponent("MeshFilter");
 				m = f.mesh;
@@ -164,7 +171,7 @@ public class ShapeKeyAnimation : System.Object {
 				MeshFilter f = (MeshFilter) meshObject.GetComponent("SkinnedMeshRenderer");
 				m = f.sharedMesh;
 			}
-			
+
 			m.vertices = mesh;
 		}
     }
@@ -193,9 +200,9 @@ public class ShapeKeyAnimation : System.Object {
 				shapeKey.strength = (float)startShapes[shapeKey];
 				mesh = shapeKey.applyShapeToVertices(mesh);
 			}
-			
+
 			Mesh m;
-			
+
 			if (meshObject.GetComponent("SkinnedMeshRenderer") == null) {
 				MeshFilter f = (MeshFilter) meshObject.GetComponent("MeshFilter");
 				m = f.mesh;
@@ -203,7 +210,7 @@ public class ShapeKeyAnimation : System.Object {
 				MeshFilter f = (MeshFilter) meshObject.GetComponent("SkinnedMeshRenderer");
 				m = f.sharedMesh;
 			}
-			
+
 			m.vertices = mesh;
 		}
     }
@@ -231,15 +238,25 @@ public class ShapeKeyAnimation : System.Object {
     }
 
     public void Update() {
-        if (animationState == AnimationState.playing) {
-            _currentTime += Time.deltaTime;
-            
+        if (animationState == AnimationState.playing || needsRedraw) {
+			if (isReversing) {
+				_currentTime -= Time.deltaTime;
+			} else {
+            	_currentTime += Time.deltaTime;
+			}
 			if (_currentTime >= _endTime) {
                 _currentTime = _endTime;
-				animationState = AnimationState.stopped;
-                // TODO: Animation ended
-
-                // Based on animation style work out what to do next
+                // Animation ended, Based on animation style work out what to do next
+				if (animationStyle == AnimationStyle.loop) {
+					_currentTime = 0;
+				} else if (animationStyle == AnimationStyle.pingPong) {
+					isReversing = !isReversing;
+				} else if (animationStyle == AnimationStyle.reset) {
+					Reset();
+					animationState = AnimationState.stopped;
+				} else if (animationStyle == AnimationStyle.end) {
+					animationState = AnimationState.stopped;
+				}
             }
 
             accumulate();
@@ -247,16 +264,18 @@ public class ShapeKeyAnimation : System.Object {
     }
 }
 
+public interface ShapeKeyAnimationDelegate {
+	void animationEnded(string animationName, GameObject target);
+	void animationPlaying(string animationName, GameObject target);
+	void animationPaused(string animationName, GameObject target);
+	void animationLoop(string animationName, GameObject target);
+	void animationReverse(string animationName, GameObject target);
+}
+
 [RequireComponent (typeof (ShapeKeys))]
 public class ShapeKeyAnimations : MonoBehaviour {
     public ShapeKeyAnimation[] shapeKeyAnimations;
 	private Hashtable shapekeyanimationlookup;
-
-    public Signal animationEnded;
-    public Signal animationPlaying;
-    public Signal animationPaused;
-    public Signal animationLoop;
-    public Signal animationReverse;
 
     public ShapeKeyAnimation findAnimationNamed(string name) {
 		return (ShapeKeyAnimation)shapekeyanimationlookup [name];
